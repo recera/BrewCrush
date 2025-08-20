@@ -13,7 +13,9 @@ import {
   FileText,
   CheckCircle,
   Clock,
-  Beer
+  Beer,
+  Activity,
+  BarChart3
 } from 'lucide-react'
 
 interface RoleAwareDashboardProps {
@@ -21,49 +23,88 @@ interface RoleAwareDashboardProps {
   workspace: any
 }
 
+interface DashboardStats {
+  inventory_value?: number
+  monthly_production_bbls?: number
+  active_batches?: number
+  tank_utilization?: number
+  open_pos?: number
+  compliance_status?: string
+  tanks_in_use?: number
+  total_tanks?: number
+  conditioning_batches?: number
+  ready_to_package?: number
+  readings_due?: number
+  low_stock_items?: number
+  pending_receiving?: number
+}
+
 export function RoleAwareDashboard({ role, workspace }: RoleAwareDashboardProps) {
-  const [stats, setStats] = useState<any>({})
+  const [stats, setStats] = useState<DashboardStats>({})
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const supabase = createClient()
 
   useEffect(() => {
     loadDashboardData()
+    
+    // Set up real-time subscriptions for key tables
+    const channel = supabase
+      .channel('dashboard-updates')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'batches' }, 
+        () => loadDashboardData()
+      )
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'purchase_orders' }, 
+        () => loadDashboardData()
+      )
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'inventory_transactions' }, 
+        () => loadDashboardData()
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
   }, [role])
 
   const loadDashboardData = async () => {
     setLoading(true)
+    setError(null)
+    
     try {
-      // Load data based on role
-      // For Phase 1, we'll show placeholder data
-      // In later phases, this will connect to real data
-      
-      if (role === 'admin' || role === 'accounting') {
-        // Load financial and compliance data
-        setStats({
-          inventoryValue: '$45,230',
-          monthlyProduction: '320 BBL',
-          openPOs: 5,
-          complianceStatus: 'Current',
-        })
-      } else if (role === 'brewer') {
-        // Load production data
-        setStats({
-          activeBatches: 8,
-          tanksInUse: '12/15',
-          upcomingBrews: 3,
-          fermReadingsDue: 4,
-        })
-      } else if (role === 'inventory') {
-        // Load inventory data
-        setStats({
-          lowStockItems: 7,
-          pendingReceiving: 3,
-          openPOs: 5,
-          cycleCountDue: 'Tomorrow',
-        })
+      // Load data using the new dashboard stats function
+      const { data, error: rpcError } = await supabase.rpc('get_dashboard_stats', {
+        p_workspace_id: workspace.id,
+        p_role: role
+      })
+
+      if (rpcError) {
+        throw rpcError
       }
-    } catch (error) {
+
+      setStats(data || {})
+
+      // Load additional role-specific data
+      if (role === 'brewer') {
+        // Get readings due count
+        const { data: readingsData } = await supabase
+          .from('batches')
+          .select('id')
+          .in('status', ['fermenting', 'conditioning'])
+          .not('ferm_readings', 'cs', `{${new Date().toISOString().split('T')[0]}}`)
+
+        setStats(prev => ({ 
+          ...prev, 
+          readings_due: readingsData?.length || 0 
+        }))
+      }
+
+    } catch (error: any) {
       console.error('Error loading dashboard data:', error)
+      setError(error.message)
     } finally {
       setLoading(false)
     }
@@ -76,34 +117,39 @@ export function RoleAwareDashboard({ role, workspace }: RoleAwareDashboardProps)
         <div className="mb-8">
           <h1 className="text-3xl font-bold">Dashboard</h1>
           <p className="text-muted-foreground">Welcome back to {workspace.name}</p>
+          {error && (
+            <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md">
+              <p className="text-sm text-red-600">Error loading data: {error}</p>
+            </div>
+          )}
         </div>
 
         {/* Stats Grid */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
           <StatCard
             title="Inventory Value"
-            value={stats.inventoryValue || '—'}
+            value={loading ? '...' : (stats.inventory_value ? `$${(stats.inventory_value).toLocaleString()}` : '$0')}
             icon={Package}
-            trend="+12.5%"
-            trendUp={true}
+            loading={loading}
           />
           <StatCard
             title="Monthly Production"
-            value={stats.monthlyProduction || '—'}
+            value={loading ? '...' : (stats.monthly_production_bbls ? `${Math.round(stats.monthly_production_bbls)} BBL` : '0 BBL')}
             icon={FlaskConical}
-            trend="+8.2%"
-            trendUp={true}
+            loading={loading}
           />
           <StatCard
             title="Open POs"
-            value={stats.openPOs || 0}
+            value={loading ? '...' : (stats.open_pos || 0)}
             icon={FileText}
+            loading={loading}
           />
           <StatCard
-            title="Compliance"
-            value={stats.complianceStatus || '—'}
-            icon={CheckCircle}
-            status="success"
+            title="Tank Utilization"
+            value={loading ? '...' : (stats.tank_utilization ? `${Math.round(stats.tank_utilization)}%` : '0%')}
+            icon={Activity}
+            loading={loading}
+            status={stats.tank_utilization && stats.tank_utilization > 85 ? 'warning' : 'default'}
           />
         </div>
 
@@ -111,23 +157,23 @@ export function RoleAwareDashboard({ role, workspace }: RoleAwareDashboardProps)
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           <QuickActionCard
             title="Production Overview"
-            description="8 active batches, 3 packaging runs scheduled"
+            description={loading ? '...' : `${stats.active_batches || 0} active batches, ${stats.ready_to_package || 0} ready to package`}
             icon={FlaskConical}
             href="/production"
           />
           <QuickActionCard
-            title="Low Stock Alert"
-            description="7 items below reorder level"
+            title="Inventory Alert"
+            description={loading ? '...' : `${stats.low_stock_items || 0} items below reorder level`}
             icon={AlertCircle}
             href="/inventory"
-            variant="warning"
+            variant={stats.low_stock_items > 0 ? 'warning' : 'default'}
           />
           <QuickActionCard
-            title="TTB Filing Due"
-            description="BROP due in 5 days"
+            title="Compliance Status"
+            description={loading ? '...' : (stats.compliance_status === 'due_soon' ? 'BROP due soon' : stats.compliance_status === 'overdue' ? 'BROP overdue' : 'All filings current')}
             icon={FileText}
             href="/compliance"
-            variant="urgent"
+            variant={stats.compliance_status === 'overdue' ? 'urgent' : stats.compliance_status === 'due_soon' ? 'warning' : 'default'}
           />
         </div>
       </div>
@@ -141,30 +187,39 @@ export function RoleAwareDashboard({ role, workspace }: RoleAwareDashboardProps)
         <div className="mb-8">
           <h1 className="text-3xl font-bold">Brewer Dashboard</h1>
           <p className="text-muted-foreground">Today's production overview</p>
+          {error && (
+            <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md">
+              <p className="text-sm text-red-600">Error loading data: {error}</p>
+            </div>
+          )}
         </div>
 
         {/* Stats Grid */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
           <StatCard
             title="Active Batches"
-            value={stats.activeBatches || 0}
+            value={loading ? '...' : (stats.active_batches || 0)}
             icon={Beer}
+            loading={loading}
           />
           <StatCard
             title="Tank Usage"
-            value={stats.tanksInUse || '—'}
+            value={loading ? '...' : `${stats.tanks_in_use || 0}/${stats.total_tanks || 0}`}
             icon={FlaskConical}
+            loading={loading}
           />
           <StatCard
-            title="Upcoming Brews"
-            value={stats.upcomingBrews || 0}
-            icon={Calendar}
+            title="Conditioning"
+            value={loading ? '...' : (stats.conditioning_batches || 0)}
+            icon={Activity}
+            loading={loading}
           />
           <StatCard
             title="Readings Due"
-            value={stats.fermReadingsDue || 0}
+            value={loading ? '...' : (stats.readings_due || 0)}
             icon={Clock}
-            status={stats.fermReadingsDue > 0 ? 'warning' : 'default'}
+            loading={loading}
+            status={stats.readings_due && stats.readings_due > 0 ? 'warning' : 'default'}
           />
         </div>
 
@@ -200,51 +255,46 @@ export function RoleAwareDashboard({ role, workspace }: RoleAwareDashboardProps)
         <div className="mb-8">
           <h1 className="text-3xl font-bold">Inventory Dashboard</h1>
           <p className="text-muted-foreground">Stock levels and purchasing</p>
+          {error && (
+            <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md">
+              <p className="text-sm text-red-600">Error loading data: {error}</p>
+            </div>
+          )}
         </div>
 
         {/* Stats Grid */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
           <StatCard
             title="Low Stock Items"
-            value={stats.lowStockItems || 0}
+            value={loading ? '...' : (stats.low_stock_items || 0)}
             icon={AlertCircle}
-            status={stats.lowStockItems > 5 ? 'warning' : 'default'}
+            loading={loading}
+            status={stats.low_stock_items && stats.low_stock_items > 5 ? 'warning' : 'default'}
           />
           <StatCard
             title="Pending Receiving"
-            value={stats.pendingReceiving || 0}
+            value={loading ? '...' : (stats.pending_receiving || 0)}
             icon={Package}
+            loading={loading}
           />
           <StatCard
             title="Open POs"
-            value={stats.openPOs || 0}
+            value={loading ? '...' : (stats.open_pos || 0)}
             icon={FileText}
+            loading={loading}
           />
           <StatCard
-            title="Cycle Count"
-            value={stats.cycleCountDue || '—'}
-            icon={CheckCircle}
+            title="Inventory Value"
+            value={loading ? '...' : (stats.inventory_value ? `$${(stats.inventory_value).toLocaleString()}` : '$0')}
+            icon={DollarSign}
+            loading={loading}
           />
         </div>
 
-        {/* Inventory Alerts */}
+        {/* Inventory Details */}
         <div className="grid gap-6 md:grid-cols-2">
-          <div className="bg-card rounded-lg p-6">
-            <h2 className="text-lg font-semibold mb-4">Low Stock Alert</h2>
-            <div className="space-y-2">
-              <LowStockItem name="Cascade Hops" current="2 lbs" reorder="10 lbs" />
-              <LowStockItem name="2-Row Malt" current="50 lbs" reorder="500 lbs" />
-              <LowStockItem name="16oz Cans" current="240" reorder="2,400" />
-            </div>
-          </div>
-          <div className="bg-card rounded-lg p-6">
-            <h2 className="text-lg font-semibold mb-4">Expected Deliveries</h2>
-            <div className="space-y-2">
-              <DeliveryItem vendor="Hop Supplier Co" date="Today" items="3 items" />
-              <DeliveryItem vendor="Malt Direct" date="Tomorrow" items="5 items" />
-              <DeliveryItem vendor="Can Supply Inc" date="Wed" items="1 item" />
-            </div>
-          </div>
+          <InventoryAlerts loading={loading} stats={stats} />
+          <ExpectedDeliveries loading={loading} stats={stats} />
         </div>
       </div>
     )
@@ -257,58 +307,44 @@ export function RoleAwareDashboard({ role, workspace }: RoleAwareDashboardProps)
         <div className="mb-8">
           <h1 className="text-3xl font-bold">Compliance & Accounting</h1>
           <p className="text-muted-foreground">Financial overview and compliance status</p>
+          {error && (
+            <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md">
+              <p className="text-sm text-red-600">Error loading data: {error}</p>
+            </div>
+          )}
         </div>
 
         {/* Stats Grid */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
           <StatCard
             title="Inventory Value"
-            value={stats.inventoryValue || '—'}
+            value={loading ? '...' : (stats.inventory_value ? `$${(stats.inventory_value).toLocaleString()}` : '$0')}
             icon={DollarSign}
+            loading={loading}
           />
           <StatCard
-            title="Open Invoices"
-            value="$12,450"
-            icon={FileText}
+            title="Monthly Production"
+            value={loading ? '...' : (stats.monthly_production_bbls ? `${Math.round(stats.monthly_production_bbls)} BBL` : '0 BBL')}
+            icon={BarChart3}
+            loading={loading}
           />
           <StatCard
             title="BROP Status"
-            value="Due in 5 days"
+            value={loading ? '...' : (stats.compliance_status || 'Current')}
             icon={Clock}
-            status="warning"
+            loading={loading}
+            status={stats.compliance_status === 'overdue' ? 'error' : stats.compliance_status === 'due_soon' ? 'warning' : 'success'}
           />
           <StatCard
-            title="Excise Tax"
-            value="Current"
-            icon={CheckCircle}
-            status="success"
+            title="Open POs"
+            value={loading ? '...' : (stats.open_pos || 0)}
+            icon={FileText}
+            loading={loading}
           />
         </div>
 
-        {/* Compliance Tasks */}
-        <div className="bg-card rounded-lg p-6">
-          <h2 className="text-lg font-semibold mb-4">Compliance Tasks</h2>
-          <div className="space-y-3">
-            <ComplianceTask
-              title="Monthly BROP (5130.9)"
-              status="pending"
-              dueDate="Dec 15, 2025"
-              description="November production report"
-            />
-            <ComplianceTask
-              title="Quarterly Excise Return"
-              status="completed"
-              dueDate="Oct 14, 2025"
-              description="Q3 2025 - Filed"
-            />
-            <ComplianceTask
-              title="State Report"
-              status="pending"
-              dueDate="Dec 20, 2025"
-              description="Monthly state excise report"
-            />
-          </div>
-        </div>
+        {/* Compliance Status */}
+        <ComplianceStatus loading={loading} stats={stats} />
       </div>
     )
   }
@@ -343,7 +379,8 @@ function StatCard({
   icon: Icon, 
   trend, 
   trendUp, 
-  status = 'default' 
+  status = 'default',
+  loading = false 
 }: any) {
   const statusColors = {
     default: '',
@@ -358,7 +395,7 @@ function StatCard({
         <p className="text-sm text-muted-foreground">{title}</p>
         <Icon className={`h-5 w-5 text-muted-foreground ${statusColors[status]}`} />
       </div>
-      <p className="text-2xl font-bold">{value}</p>
+      <p className={`text-2xl font-bold ${loading ? 'animate-pulse' : ''}`}>{value}</p>
       {trend && (
         <p className={`text-sm mt-1 ${trendUp ? 'text-green-600' : 'text-red-600'}`}>
           {trend} from last month
@@ -440,6 +477,186 @@ function ComplianceTask({ title, status, dueDate, description }: any) {
         <p className="text-sm text-muted-foreground">{description}</p>
         <p className="text-xs text-muted-foreground mt-1">Due: {dueDate}</p>
       </div>
+    </div>
+  )
+}
+
+// Additional components for inventory and compliance dashboards
+function InventoryAlerts({ loading, stats }: any) {
+  const [lowStockItems, setLowStockItems] = useState<any[]>([])
+  const supabase = createClient()
+
+  useEffect(() => {
+    loadLowStockItems()
+  }, [])
+
+  const loadLowStockItems = async () => {
+    try {
+      const { data } = await supabase
+        .from('mv_inventory_on_hand')
+        .select('item_name, total_qty, base_uom, reorder_level')
+        .eq('below_reorder_level', true)
+        .limit(5)
+
+      setLowStockItems(data || [])
+    } catch (error) {
+      console.error('Error loading low stock items:', error)
+    }
+  }
+
+  return (
+    <div className="bg-card rounded-lg p-6">
+      <h2 className="text-lg font-semibold mb-4">Low Stock Alert</h2>
+      {loading ? (
+        <div className="space-y-2">
+          <div className="animate-pulse">
+            <div className="h-4 bg-gray-200 rounded mb-2"></div>
+            <div className="h-4 bg-gray-200 rounded mb-2"></div>
+            <div className="h-4 bg-gray-200 rounded"></div>
+          </div>
+        </div>
+      ) : lowStockItems.length > 0 ? (
+        <div className="space-y-2">
+          {lowStockItems.map((item, index) => (
+            <LowStockItem
+              key={index}
+              name={item.item_name}
+              current={`${item.total_qty} ${item.base_uom}`}
+              reorder={`${item.reorder_level} ${item.base_uom}`}
+            />
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground">All items are above reorder levels</p>
+      )}
+    </div>
+  )
+}
+
+function ExpectedDeliveries({ loading, stats }: any) {
+  const [pendingPOs, setPendingPOs] = useState<any[]>([])
+  const supabase = createClient()
+
+  useEffect(() => {
+    loadPendingPOs()
+  }, [])
+
+  const loadPendingPOs = async () => {
+    try {
+      const { data } = await supabase
+        .from('purchase_orders')
+        .select(`
+          vendor:vendors(name),
+          expected_delivery_date,
+          po_lines(count)
+        `)
+        .in('status', ['approved', 'partial'])
+        .order('expected_delivery_date')
+        .limit(5)
+
+      setPendingPOs(data || [])
+    } catch (error) {
+      console.error('Error loading pending POs:', error)
+    }
+  }
+
+  const formatDeliveryDate = (date: string) => {
+    if (!date) return 'TBD'
+    const deliveryDate = new Date(date)
+    const today = new Date()
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    
+    if (deliveryDate.toDateString() === today.toDateString()) return 'Today'
+    if (deliveryDate.toDateString() === tomorrow.toDateString()) return 'Tomorrow'
+    
+    return deliveryDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+  }
+
+  return (
+    <div className="bg-card rounded-lg p-6">
+      <h2 className="text-lg font-semibold mb-4">Expected Deliveries</h2>
+      {loading ? (
+        <div className="space-y-2">
+          <div className="animate-pulse">
+            <div className="h-4 bg-gray-200 rounded mb-2"></div>
+            <div className="h-4 bg-gray-200 rounded mb-2"></div>
+            <div className="h-4 bg-gray-200 rounded"></div>
+          </div>
+        </div>
+      ) : pendingPOs.length > 0 ? (
+        <div className="space-y-2">
+          {pendingPOs.map((po, index) => (
+            <DeliveryItem
+              key={index}
+              vendor={po.vendor?.name || 'Unknown Vendor'}
+              date={formatDeliveryDate(po.expected_delivery_date)}
+              items={`${po.po_lines?.[0]?.count || 0} items`}
+            />
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground">No pending deliveries</p>
+      )}
+    </div>
+  )
+}
+
+function ComplianceStatus({ loading, stats }: any) {
+  const [complianceTasks, setComplianceTasks] = useState<any[]>([])
+  const supabase = createClient()
+
+  useEffect(() => {
+    loadComplianceTasks()
+  }, [])
+
+  const loadComplianceTasks = async () => {
+    try {
+      const { data } = await supabase
+        .from('ttb_periods')
+        .select('type, period_start, period_end, status, due_date')
+        .order('due_date', { ascending: true })
+        .limit(5)
+
+      const tasks = (data || []).map((period: any) => ({
+        title: `${period.type === 'monthly' ? 'Monthly' : 'Quarterly'} BROP`,
+        status: period.status === 'finalized' ? 'completed' : 'pending',
+        dueDate: new Date(period.due_date).toLocaleDateString(),
+        description: `${period.type === 'monthly' ? 'Form 5130.9' : 'Form 5130.26'} - ${new Date(period.period_start).toLocaleDateString()} to ${new Date(period.period_end).toLocaleDateString()}`
+      }))
+
+      setComplianceTasks(tasks)
+    } catch (error) {
+      console.error('Error loading compliance tasks:', error)
+    }
+  }
+
+  return (
+    <div className="bg-card rounded-lg p-6">
+      <h2 className="text-lg font-semibold mb-4">Compliance Tasks</h2>
+      {loading ? (
+        <div className="space-y-3">
+          <div className="animate-pulse">
+            <div className="h-4 bg-gray-200 rounded mb-2"></div>
+            <div className="h-4 bg-gray-200 rounded mb-2"></div>
+            <div className="h-4 bg-gray-200 rounded"></div>
+          </div>
+        </div>
+      ) : complianceTasks.length > 0 ? (
+        <div className="space-y-3">
+          {complianceTasks.map((task, index) => (
+            <ComplianceTask
+              key={index}
+              title={task.title}
+              status={task.status}
+              dueDate={task.dueDate}
+              description={task.description}
+            />
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground">No compliance tasks found</p>
+      )}
     </div>
   )
 }
