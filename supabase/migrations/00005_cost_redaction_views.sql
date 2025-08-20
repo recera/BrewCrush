@@ -266,34 +266,8 @@ GRANT SELECT ON v_cogs_summary TO authenticated;
 -- CONTRACT VIEWER RESTRICTIONS
 -- =====================================================
 
--- Special view for contract viewers - only their batches
-CREATE OR REPLACE VIEW v_contract_batches AS
-SELECT 
-  b.id,
-  b.batch_number,
-  b.recipe_version_id,
-  rv.name AS recipe_name,
-  b.status,
-  b.target_volume,
-  b.actual_volume,
-  b.brew_date,
-  -- package_date doesn't exist yet
-  -- No cost information for contract viewers
-  b.owner_entity_id
-FROM batches b
-LEFT JOIN recipe_versions rv ON rv.id = b.recipe_version_id
-WHERE b.workspace_id = get_jwt_workspace_id()
-  AND (
-    -- Contract viewers can only see their own batches
-    NOT is_contract_viewer() 
-    OR b.owner_entity_id IN (
-      SELECT entity_id 
-      FROM user_contract_entities 
-      WHERE user_id = get_jwt_user_id()
-    )
-  );
-
-GRANT SELECT ON v_contract_batches TO authenticated;
+-- Note: Contract viewer batches view is created in migration 00005a_fix_contract_viewer_views.sql
+-- This is because it depends on the user_contract_entities table which is created there
 
 -- =====================================================
 -- HELPER FUNCTIONS FOR VIEWS
@@ -360,6 +334,6 @@ COMMENT ON VIEW v_item_lots IS 'Item lots with automatic cost redaction based on
 COMMENT ON VIEW v_items_with_costs IS 'Items with cost information, redacted for users without cost visibility';
 COMMENT ON VIEW v_purchase_orders IS 'Purchase orders with financial information redacted based on role';
 COMMENT ON VIEW v_batches_with_costs IS 'Batch information with cost data redacted for unauthorized users';
-COMMENT ON VIEW v_contract_batches IS 'Limited batch view for contract viewers, showing only their own production';
+-- Comment for v_contract_batches is in migration 00005a_fix_contract_viewer_views.sql
 COMMENT ON FUNCTION has_cost_visibility IS 'Determines if current user can view cost information';
 COMMENT ON FUNCTION has_item_cost_visibility IS 'Determines if current user can view costs for a specific item';

@@ -80,6 +80,12 @@ serve(async (req) => {
           case 'inventory.adjust':
             result = await processInventoryAdjust(supabaseClient, action.payload)
             break
+          case 'create_packaging_run':
+            result = await processPackagingRun(supabaseClient, action.payload)
+            break
+          case 'packaging.update_status':
+            result = await updatePackagingStatus(supabaseClient, action.payload)
+            break
           default:
             throw new Error(`Unknown operation: ${action.op_name}`)
         }
@@ -153,6 +159,35 @@ async function processInventoryAdjust(client: any, payload: any) {
       ...payload,
       type: 'adjust',
     })
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+async function processPackagingRun(client: any, payload: any) {
+  // Call the RPC function to create packaging run
+  const { data, error } = await client
+    .rpc('create_packaging_run', {
+      p_data: payload
+    })
+
+  if (error) throw error
+  return data
+}
+
+async function updatePackagingStatus(client: any, payload: any) {
+  const { packaging_run_id, status, notes } = payload
+  
+  const { data, error } = await client
+    .from('packaging_runs')
+    .update({
+      status,
+      notes,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', packaging_run_id)
     .select()
     .single()
 

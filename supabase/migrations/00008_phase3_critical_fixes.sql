@@ -14,10 +14,23 @@ ALTER TABLE po_receipt_lines
   ADD CONSTRAINT check_qty_received CHECK (qty_received > 0),
   ADD CONSTRAINT check_positive_actual_cost CHECK (unit_cost >= 0);
 
--- Ensure valid status transitions
+-- Add cancelled status to po_status enum if it doesn't exist
+DO $$ 
+BEGIN
+  -- Check if 'cancelled' value exists in po_status enum
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_enum 
+    WHERE enumlabel = 'cancelled' 
+    AND enumtypid = 'po_status'::regtype
+  ) THEN
+    ALTER TYPE po_status ADD VALUE 'cancelled' AFTER 'closed';
+  END IF;
+END $$;
+
+-- Ensure valid status transitions (now including cancelled)
 ALTER TABLE purchase_orders
   ADD CONSTRAINT check_valid_status CHECK (
-    status IN ('draft', 'approved', 'partial', 'received', 'closed', 'cancelled')
+    status::text IN ('draft', 'approved', 'partial', 'received', 'closed', 'cancelled')
   );
 
 -- Prevent duplicate PO numbers per workspace
