@@ -9,6 +9,8 @@ export default function OnboardingPage() {
   const [mode, setMode] = useState<'create' | 'join'>('create')
   const [workspaceName, setWorkspaceName] = useState('')
   const [inviteCode, setInviteCode] = useState('')
+  const [billingPlan, setBillingPlan] = useState('')
+  const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('monthly')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
@@ -21,6 +23,12 @@ export default function OnboardingPage() {
     if (suggestedName) {
       setWorkspaceName(suggestedName)
     }
+
+    // Get billing info from signup
+    const plan = searchParams.get('plan')
+    const billing = searchParams.get('billing')
+    if (plan) setBillingPlan(plan)
+    if (billing) setBillingPeriod(billing as 'monthly' | 'annual')
 
     // Check if user has an invite code
     const code = searchParams.get('invite')
@@ -39,9 +47,11 @@ export default function OnboardingPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('User not authenticated')
 
-      // Call RPC function to create workspace and assign admin role
-      const { data, error } = await supabase.rpc('create_workspace', {
+      // Call RPC function to create workspace with billing setup
+      const { data, error } = await supabase.rpc('create_workspace_with_billing', {
         workspace_name: workspaceName,
+        plan_tier: billingPlan || 'starter',
+        billing_period: billingPeriod,
       })
 
       if (error) throw error

@@ -1,6 +1,7 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { env } from '@/lib/env'
+import { checkBillingStatus } from '@/lib/billing/middleware'
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
@@ -75,6 +76,14 @@ export async function middleware(request: NextRequest) {
   // Redirect to dashboard if accessing auth routes while authenticated
   if (isAuthRoute && user) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
+  }
+
+  // Check billing status for authenticated users on protected routes
+  if (user && isProtectedRoute) {
+    const billingResponse = await checkBillingStatus(request)
+    if (billingResponse.status !== 200) {
+      return billingResponse
+    }
   }
 
   return response
