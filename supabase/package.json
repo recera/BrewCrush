@@ -1,0 +1,19 @@
+{
+  "name": "@brewcrush/supabase",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "db:push": "supabase db push",
+    "db:reset": "supabase db reset",
+    "db:seed": "supabase db seed",
+    "db:diff": "supabase db diff",
+    "db:lint": "supabase db lint",
+    "db:test": "supabase test db",
+    "functions:serve": "supabase functions serve",
+    "functions:deploy": "supabase functions deploy",
+    "start": "supabase start",
+    "stop": "supabase stop",
+    "status": "supabase status",
+    "test": "supabase test db"
+  }
+}

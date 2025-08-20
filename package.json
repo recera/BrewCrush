@@ -1,0 +1,42 @@
+{
+  "name": "brewcrush",
+  "version": "1.0.0",
+  "private": true,
+  "description": "BrewCrush - Brewery Management System",
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "test": "turbo test",
+    "test:e2e": "turbo test:e2e",
+    "test:unit": "turbo test:unit",
+    "lint": "turbo lint",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
+    "typecheck": "turbo typecheck",
+    "clean": "turbo clean && rm -rf node_modules",
+    "db:push": "pnpm --filter supabase db:push",
+    "db:reset": "pnpm --filter supabase db:reset",
+    "db:seed": "pnpm --filter supabase db:seed"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@typescript-eslint/eslint-plugin": "^6.19.0",
+    "@typescript-eslint/parser": "^6.19.0",
+    "eslint": "^8.56.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-react": "^7.33.2",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "prettier": "^3.2.4",
+    "turbo": "^1.11.3",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "packageManager": "pnpm@8.14.1",
+  "dependencies": {
+    "@supabase/ssr": "^0.6.1",
+    "@tanstack/react-query-devtools": "^5.85.3"
+  }
+}

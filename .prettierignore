@@ -1,0 +1,30 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build outputs
+.next
+dist
+build
+out
+
+# Cache
+.turbo
+.cache
+
+# Testing
+coverage
+playwright-report
+test-results
+
+# Environment
+.env
+.env.*
+
+# Supabase
+supabase/.temp
+supabase/.branches
+
+# Generated files
+*.generated.*
+pnpm-lock.yaml
