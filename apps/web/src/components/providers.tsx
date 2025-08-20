@@ -3,6 +3,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { useState } from 'react'
+import { Toaster } from 'sonner'
+import { ServiceWorkerProvider } from '@/components/ui/service-worker-provider'
+import { OutboxTray } from '@/components/ui/outbox-tray'
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -27,7 +30,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <ServiceWorkerProvider />
       {children}
+      <OutboxTray />
+      <Toaster position="bottom-right" richColors />
       {process.env.NODE_ENV === 'development' && (
         <ReactQueryDevtools initialIsOpen={false} />
       )}

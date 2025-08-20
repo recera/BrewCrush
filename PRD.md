@@ -655,6 +655,7 @@ AC: Wizard collects all required fields; posts in‑bond movement; prints doc; a
 User story: As accounting, I can ingest POS sales and see removals.
 AC: CSV mapping; removals posted; conflicts/errors exportable; totals match POS day summary.
 
+##PHASE 10##
 14) Pricing & Billing — MVP (Same Features Across Tiers)
 14.1 Goals & constraints
 
@@ -674,8 +675,6 @@ Plan (by annual BBL)	Who it fits	Pay monthly	Pay annually (–15%)
 Starter (≤ 1,000 BBL/yr)	Nanos & early micros	$40	$34 / mo
 Growth (1,001–3,500 BBL/yr)	Most micros	$85	$72 / mo
 Pro (3,501–10,000 BBL/yr)	Larger craft / contract	$200	$170 / mo
-
-Optional setup packages (one-time): $299 Basic import • $899 White-glove import • $1,499 Legacy switch + “BROP/Excise rehearsal”.
 
 14.3 Included features (identical across all tiers)
 

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BrewCrush - Offline</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background-color: #f7f7f7;
+      color: #333;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    
+    .container {
+      text-align: center;
+      max-width: 500px;
+      background: white;
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+    
+    .icon {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 20px;
+      background: #f97316;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .icon svg {
+      width: 40px;
+      height: 40px;
+      stroke: white;
+      stroke-width: 2;
+      fill: none;
+    }
+    
+    h1 {
+      font-size: 24px;
+      margin-bottom: 10px;
+      color: #111;
+    }
+    
+    p {
+      font-size: 16px;
+      line-height: 1.5;
+      margin-bottom: 20px;
+      color: #666;
+    }
+    
+    .status {
+      padding: 12px 20px;
+      background: #fef3c7;
+      border-radius: 8px;
+      color: #92400e;
+      font-size: 14px;
+      margin-bottom: 20px;
+    }
+    
+    button {
+      background: #f97316;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    
+    button:hover {
+      background: #ea580c;
+    }
+    
+    button:active {
+      transform: scale(0.98);
+    }
+    
+    .queue-info {
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid #e5e5e5;
+      font-size: 14px;
+      color: #888;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="icon">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243 2.829a4.978 4.978 0 01-1.414-2.83m-1.414 5.658a9 9 0 01-2.167-9.238m7.824 2.167a1 1 0 111.414 1.414m-1.414-1.414L3 3m8.293 8.293l1.414 1.414" />
+      </svg>
+    </div>
+    
+    <h1>You're offline</h1>
+    <p>It looks like you've lost your internet connection. Don't worry - your work is saved locally.</p>
+    
+    <div class="status" id="queue-status">
+      Checking offline queue...
+    </div>
+    
+    <button onclick="tryReconnect()">Try to Reconnect</button>
+    
+    <div class="queue-info">
+      Any changes you make will be automatically synced when you're back online.
+    </div>
+  </div>
+  
+  <script>
+    // Check offline queue status
+    async function checkQueueStatus() {
+      try {
+        const db = await openDB();
+        const count = await getQueueCount(db);
+        
+        const statusEl = document.getElementById('queue-status');
+        if (count > 0) {
+          statusEl.textContent = `${count} action${count > 1 ? 's' : ''} waiting to sync`;
+          statusEl.style.background = '#fee2e2';
+          statusEl.style.color = '#991b1b';
+        } else {
+          statusEl.textContent = 'All changes are saved locally';
+        }
+      } catch (error) {
+        console.error('Error checking queue:', error);
+      }
+    }
+    
+    // Simple IndexedDB helper
+    function openDB() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open('brewcrush-offline', 1);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    }
+    
+    function getQueueCount(db) {
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction(['outbox'], 'readonly');
+        const store = transaction.objectStore('outbox');
+        const request = store.count();
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    }
+    
+    // Try to reconnect
+    function tryReconnect() {
+      window.location.reload();
+    }
+    
+    // Check status on load
+    checkQueueStatus();
+    
+    // Listen for online event
+    window.addEventListener('online', () => {
+      window.location.reload();
+    });
+  </script>
+</body>
+</html>
