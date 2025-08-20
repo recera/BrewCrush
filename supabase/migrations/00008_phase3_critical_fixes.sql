@@ -14,18 +14,8 @@ ALTER TABLE po_receipt_lines
   ADD CONSTRAINT check_qty_received CHECK (qty_received > 0),
   ADD CONSTRAINT check_positive_actual_cost CHECK (unit_cost >= 0);
 
--- Add cancelled status to po_status enum if it doesn't exist
-DO $$ 
-BEGIN
-  -- Check if 'cancelled' value exists in po_status enum
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_enum 
-    WHERE enumlabel = 'cancelled' 
-    AND enumtypid = 'po_status'::regtype
-  ) THEN
-    ALTER TYPE po_status ADD VALUE 'cancelled' AFTER 'closed';
-  END IF;
-END $$;
+-- Add cancelled status to po_status enum (must be done outside transaction for immediate use)
+ALTER TYPE po_status ADD VALUE IF NOT EXISTS 'cancelled' AFTER 'closed';
 
 -- Ensure valid status transitions (now including cancelled)
 ALTER TABLE purchase_orders
@@ -51,9 +41,10 @@ ALTER TABLE po_receipt_lines
 CREATE INDEX IF NOT EXISTS idx_po_lines_po_item 
   ON po_lines(po_id, item_id);
 
-CREATE INDEX IF NOT EXISTS idx_po_status_date 
-  ON purchase_orders(status, due_date) 
-  WHERE status NOT IN ('closed', 'cancelled');
+-- Note: This index will be created in a later migration after cancelled status is committed
+-- CREATE INDEX IF NOT EXISTS idx_po_status_date 
+--   ON purchase_orders(status, due_date) 
+--   WHERE status NOT IN ('closed', 'cancelled');
 
 CREATE INDEX IF NOT EXISTS idx_po_vendor_status 
   ON purchase_orders(vendor_id, status);
@@ -95,14 +86,14 @@ CREATE POLICY po_receipts_insert ON po_receipts
   FOR INSERT 
   WITH CHECK (
     workspace_id = get_jwt_workspace_id() 
-    AND (has_role('inventory'::role) OR has_role('admin'::role))
+    AND (has_role('inventory'::user_role) OR has_role('admin'::user_role))
   );
 
 CREATE POLICY po_receipts_update ON po_receipts
   FOR UPDATE
   USING (
     workspace_id = get_jwt_workspace_id() 
-    AND (has_role('inventory'::role) OR has_role('admin'::role))
+    AND (has_role('inventory'::user_role) OR has_role('admin'::user_role))
   );
 
 -- Policies for po_receipt_lines
@@ -114,7 +105,7 @@ CREATE POLICY po_receipt_lines_insert ON po_receipt_lines
   FOR INSERT
   WITH CHECK (
     workspace_id = get_jwt_workspace_id() 
-    AND (has_role('inventory'::role) OR has_role('admin'::role))
+    AND (has_role('inventory'::user_role) OR has_role('admin'::user_role))
   );
 
 -- Cost visibility policy for po_lines (SELECT only)
@@ -125,7 +116,7 @@ CREATE POLICY po_lines_cost_visibility ON po_lines
     AND (
       has_cost_visibility() 
       OR expected_unit_cost IS NULL
-      OR has_role('admin'::role)
+      OR has_role('admin'::user_role)
     )
   );
 
@@ -143,7 +134,7 @@ CREATE TABLE IF NOT EXISTS po_approval_rules (
   workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
   min_amount DECIMAL(12,2),
   max_amount DECIMAL(12,2),
-  required_role role NOT NULL,
+  required_role user_role NOT NULL,
   required_approvals INT DEFAULT 1,
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT now(),
@@ -373,6 +364,9 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- 8. FIX REORDER SUGGESTIONS TO INCLUDE IN-TRANSIT
 -- ========================================
 
+-- Drop the existing function if it exists with different signature
+DROP FUNCTION IF EXISTS get_low_stock_reorder_suggestions(UUID);
+
 CREATE OR REPLACE FUNCTION get_low_stock_reorder_suggestions(
   p_workspace_id UUID DEFAULT NULL
 )
@@ -539,40 +533,44 @@ ALTER TABLE vendors
 -- 11. CREATE MATERIALIZED VIEW FOR PO SUMMARY
 -- ========================================
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS po_summary_by_vendor AS
-SELECT 
-  po.vendor_id,
-  v.name as vendor_name,
-  COUNT(DISTINCT po.id) as total_pos,
-  COUNT(DISTINCT CASE WHEN po.status = 'draft' THEN po.id END) as draft_count,
-  COUNT(DISTINCT CASE WHEN po.status = 'approved' THEN po.id END) as approved_count,
-  COUNT(DISTINCT CASE WHEN po.status IN ('partial', 'received') THEN po.id END) as in_progress_count,
-  COUNT(DISTINCT CASE WHEN po.status = 'closed' THEN po.id END) as closed_count,
-  COUNT(DISTINCT CASE WHEN po.status = 'cancelled' THEN po.id END) as cancelled_count,
-  SUM(
-    CASE 
-      WHEN po.status NOT IN ('cancelled', 'draft') 
-      THEN COALESCE(
-        (SELECT SUM(pl.qty * pl.expected_unit_cost) 
-         FROM po_lines pl 
-         WHERE pl.po_id = po.id), 0)
-      ELSE 0 
-    END
-  ) as total_value,
-  AVG(
-    CASE 
-      WHEN po.status = 'closed' 
-      THEN DATE_PART('day', po.updated_at - po.created_at)
-      ELSE NULL 
-    END
-  ) as avg_days_to_close,
-  MAX(po.created_at) as last_po_date
-FROM purchase_orders po
-JOIN vendors v ON v.id = po.vendor_id
-GROUP BY po.vendor_id, v.name;
+-- NOTE: This materialized view is commented out because it references the 'cancelled' enum value
+-- which cannot be used in the same transaction where it's added (PostgreSQL limitation).
+-- This view should be created in a separate migration file after the enum value is committed.
+
+-- CREATE MATERIALIZED VIEW IF NOT EXISTS po_summary_by_vendor AS
+-- SELECT 
+--   po.vendor_id,
+--   v.name as vendor_name,
+--   COUNT(DISTINCT po.id) as total_pos,
+--   COUNT(DISTINCT CASE WHEN po.status = 'draft' THEN po.id END) as draft_count,
+--   COUNT(DISTINCT CASE WHEN po.status = 'approved' THEN po.id END) as approved_count,
+--   COUNT(DISTINCT CASE WHEN po.status IN ('partial', 'received') THEN po.id END) as in_progress_count,
+--   COUNT(DISTINCT CASE WHEN po.status = 'closed' THEN po.id END) as closed_count,
+--   COUNT(DISTINCT CASE WHEN po.status = 'cancelled' THEN po.id END) as cancelled_count,
+--   SUM(
+--     CASE 
+--       WHEN po.status NOT IN ('cancelled', 'draft') 
+--       THEN COALESCE(
+--         (SELECT SUM(pl.qty * pl.expected_unit_cost) 
+--          FROM po_lines pl 
+--          WHERE pl.po_id = po.id), 0)
+--       ELSE 0 
+--     END
+--   ) as total_value,
+--   AVG(
+--     CASE 
+--       WHEN po.status = 'closed' 
+--       THEN DATE_PART('day', po.updated_at - po.created_at)
+--       ELSE NULL 
+--     END
+--   ) as avg_days_to_close,
+--   MAX(po.created_at) as last_po_date
+-- FROM purchase_orders po
+-- JOIN vendors v ON v.id = po.vendor_id
+-- GROUP BY po.vendor_id, v.name;
 
 -- Create index on the materialized view
-CREATE INDEX idx_po_summary_vendor ON po_summary_by_vendor(vendor_id);
+-- CREATE INDEX idx_po_summary_vendor ON po_summary_by_vendor(vendor_id);
 
 -- ========================================
 -- 12. ADD FUNCTION TO UPDATE PO LINES
@@ -842,7 +840,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- ========================================
 
 -- Grant permissions to authenticated users
-GRANT SELECT ON po_summary_by_vendor TO authenticated;
+-- GRANT SELECT ON po_summary_by_vendor TO authenticated; -- Commented until view is created
 GRANT SELECT, INSERT, UPDATE ON po_approval_rules TO authenticated;
 GRANT SELECT, INSERT ON po_approvals TO authenticated;
 
@@ -872,7 +870,8 @@ SELECT * FROM po_lines WHERE deleted_at IS NULL;
 CREATE OR REPLACE FUNCTION refresh_po_summary()
 RETURNS void AS $$
 BEGIN
-  REFRESH MATERIALIZED VIEW CONCURRENTLY po_summary_by_vendor;
+  -- REFRESH MATERIALIZED VIEW CONCURRENTLY po_summary_by_vendor; -- Commented until view is created
+  RETURN;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 

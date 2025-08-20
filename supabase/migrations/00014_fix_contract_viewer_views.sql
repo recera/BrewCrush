@@ -47,8 +47,8 @@ SELECT
   b.recipe_version_id,
   rv.name AS recipe_name,
   b.status,
-  b.target_volume_liters AS target_volume,
-  b.actual_volume_liters AS actual_volume,
+  b.target_volume AS target_volume,
+  b.actual_volume AS actual_volume,
   b.brew_date,
   -- No cost information for contract viewers
   b.owner_entity_id

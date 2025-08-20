@@ -10,125 +10,144 @@
 -- FINISHED SKUS (Product Definitions)
 -- ============================================================================
 
-CREATE TABLE IF NOT EXISTS finished_skus (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-  code TEXT NOT NULL, -- SKU code like "IPA-6PK"
-  name TEXT NOT NULL,
-  description TEXT,
-  container_type TEXT NOT NULL CHECK (container_type IN ('keg', 'can', 'bottle', 'growler', 'other')),
-  container_size_ml INTEGER NOT NULL, -- Size in milliliters
-  pack_size INTEGER NOT NULL DEFAULT 1, -- Number of containers per pack
-  barrels_per_unit NUMERIC(10,4) NOT NULL, -- Calculated: (container_size_ml * pack_size) / 117347.76 ml per barrel
-  is_active BOOLEAN DEFAULT true,
-  default_price_cents INTEGER,
-  metadata JSONB DEFAULT '{}',
-  created_at TIMESTAMPTZ DEFAULT now(),
-  created_by UUID REFERENCES users(id),
-  updated_at TIMESTAMPTZ DEFAULT now(),
-  updated_by UUID REFERENCES users(id),
-  UNIQUE(workspace_id, code)
-);
+-- The finished_skus table was already created in migration 00003_production_schema.sql
+-- We need to add missing columns to the existing table
+ALTER TABLE finished_skus 
+  ADD COLUMN IF NOT EXISTS code TEXT,
+  ADD COLUMN IF NOT EXISTS description TEXT,
+  ADD COLUMN IF NOT EXISTS container_type TEXT,
+  ADD COLUMN IF NOT EXISTS container_size_ml INTEGER,
+  ADD COLUMN IF NOT EXISTS pack_size INTEGER DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS barrels_per_unit NUMERIC(10,4),
+  ADD COLUMN IF NOT EXISTS default_price_cents INTEGER,
+  ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}';
+
+-- Update container_type from existing type column if needed
+UPDATE finished_skus 
+SET container_type = type,
+    container_size_ml = size_ml,
+    pack_size = units_per_pack,
+    code = sku_code
+WHERE container_type IS NULL;
+
+-- Add check constraint for container_type
+ALTER TABLE finished_skus 
+  DROP CONSTRAINT IF EXISTS finished_skus_container_type_check,
+  ADD CONSTRAINT finished_skus_container_type_check 
+  CHECK (container_type IN ('keg', 'can', 'bottle', 'growler', 'other'));
+
+-- Calculate barrels_per_unit for existing records
+UPDATE finished_skus 
+SET barrels_per_unit = (container_size_ml * pack_size) / 117347.76
+WHERE barrels_per_unit IS NULL;
+
+-- Add unique constraint if not exists
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint 
+    WHERE conname = 'finished_skus_workspace_code_key'
+  ) THEN
+    ALTER TABLE finished_skus ADD CONSTRAINT finished_skus_workspace_code_key UNIQUE(workspace_id, code);
+  END IF;
+END $$;
 
 -- ============================================================================
 -- LOT CODE TEMPLATES
 -- ============================================================================
 
-CREATE TABLE IF NOT EXISTS lot_code_templates (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  pattern TEXT NOT NULL, -- e.g., "{YY}{JJJ}-{BATCH}-{SKU}"
-  description TEXT,
-  is_default BOOLEAN DEFAULT false,
-  tokens_used TEXT[], -- Array of tokens used in pattern for validation
-  created_at TIMESTAMPTZ DEFAULT now(),
-  created_by UUID REFERENCES users(id),
-  updated_at TIMESTAMPTZ DEFAULT now(),
-  updated_by UUID REFERENCES users(id),
-  UNIQUE(workspace_id, name)
-);
+-- The lot_code_templates table was already created in migration 00003_production_schema.sql
+-- We need to add missing columns to the existing table
+ALTER TABLE lot_code_templates
+  ADD COLUMN IF NOT EXISTS tokens_used TEXT[];
+
+-- Add unique constraint if not exists
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint 
+    WHERE conname = 'lot_code_templates_workspace_name_key'
+  ) THEN
+    ALTER TABLE lot_code_templates ADD CONSTRAINT lot_code_templates_workspace_name_key UNIQUE(workspace_id, name);
+  END IF;
+END $$;
 
 -- ============================================================================
 -- PACKAGING RUNS
 -- ============================================================================
 
-CREATE TABLE IF NOT EXISTS packaging_runs (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-  run_number SERIAL,
-  sku_id UUID NOT NULL REFERENCES finished_skus(id),
-  packaged_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  target_quantity INTEGER NOT NULL,
-  actual_quantity INTEGER NOT NULL,
-  loss_percentage NUMERIC(5,2) DEFAULT 0,
-  cost_method_used TEXT CHECK (cost_method_used IN ('actual_lots', 'moving_avg', 'latest_cost')) DEFAULT 'actual_lots',
-  total_cogs_cents INTEGER NOT NULL DEFAULT 0,
-  unit_cogs_cents INTEGER NOT NULL DEFAULT 0,
-  lot_code_template_id UUID REFERENCES lot_code_templates(id),
-  lot_code_pattern TEXT, -- The pattern used at time of packaging
-  location_id UUID REFERENCES inventory_locations(id),
-  notes TEXT,
-  metadata JSONB DEFAULT '{}',
-  created_at TIMESTAMPTZ DEFAULT now(),
-  created_by UUID REFERENCES users(id),
-  updated_at TIMESTAMPTZ DEFAULT now(),
-  updated_by UUID REFERENCES users(id)
-);
+-- The packaging_runs table was already created in migration 00003_production_schema.sql
+-- We need to add missing columns to the existing table
+ALTER TABLE packaging_runs
+  ADD COLUMN IF NOT EXISTS packaged_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS target_quantity INTEGER,
+  ADD COLUMN IF NOT EXISTS actual_quantity INTEGER,
+  ADD COLUMN IF NOT EXISTS loss_percentage NUMERIC(5,2) DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS total_cogs_cents INTEGER DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS unit_cogs_cents INTEGER DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS lot_code_pattern TEXT,
+  ADD COLUMN IF NOT EXISTS location_id UUID REFERENCES inventory_locations(id),
+  ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}';
+
+-- Update packaged_at from packaging_date if needed
+UPDATE packaging_runs
+SET packaged_at = packaging_date,
+    actual_quantity = total_produced,
+    loss_percentage = loss_pct
+WHERE packaged_at IS NULL;
 
 -- ============================================================================
 -- PACKAGING RUN SOURCES (for blends)
 -- ============================================================================
 
-CREATE TABLE IF NOT EXISTS packaging_run_sources (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  packaging_run_id UUID NOT NULL REFERENCES packaging_runs(id) ON DELETE CASCADE,
-  batch_id UUID NOT NULL REFERENCES batches(id),
-  volume_liters NUMERIC(10,2) NOT NULL,
-  percentage_of_blend NUMERIC(5,2) NOT NULL,
-  allocated_cogs_cents INTEGER NOT NULL DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  created_by UUID REFERENCES users(id)
-);
+-- The packaging_run_sources table was already created in migration 00003_production_schema.sql
+-- We need to add missing columns to the existing table
+ALTER TABLE packaging_run_sources
+  ADD COLUMN IF NOT EXISTS packaging_run_id UUID,
+  ADD COLUMN IF NOT EXISTS percentage_of_blend NUMERIC(5,2),
+  ADD COLUMN IF NOT EXISTS allocated_cogs_cents INTEGER DEFAULT 0;
+
+-- Update packaging_run_id from run_id if needed
+UPDATE packaging_run_sources
+SET packaging_run_id = run_id,
+    percentage_of_blend = allocation_pct * 100
+WHERE packaging_run_id IS NULL;
 
 -- ============================================================================
 -- FINISHED LOTS
 -- ============================================================================
 
-CREATE TABLE IF NOT EXISTS finished_lots (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-  sku_id UUID NOT NULL REFERENCES finished_skus(id),
-  packaging_run_id UUID NOT NULL REFERENCES packaging_runs(id),
-  lot_code TEXT NOT NULL,
-  quantity INTEGER NOT NULL,
-  quantity_remaining INTEGER NOT NULL,
-  unit_cogs_cents INTEGER NOT NULL,
-  expiry_date DATE,
-  location_id UUID REFERENCES inventory_locations(id),
-  owner_entity_id UUID REFERENCES ownership_entities(id), -- For contract brewing
-  metadata JSONB DEFAULT '{}',
-  created_at TIMESTAMPTZ DEFAULT now(),
-  created_by UUID REFERENCES users(id),
-  updated_at TIMESTAMPTZ DEFAULT now(),
-  updated_by UUID REFERENCES users(id),
-  UNIQUE(workspace_id, lot_code)
-);
+-- The finished_lots table was already created in migration 00003_production_schema.sql
+-- We need to add missing columns to the existing table
+ALTER TABLE finished_lots
+  ADD COLUMN IF NOT EXISTS quantity INTEGER,
+  ADD COLUMN IF NOT EXISTS quantity_remaining INTEGER,
+  ADD COLUMN IF NOT EXISTS unit_cogs_cents INTEGER,
+  ADD COLUMN IF NOT EXISTS expiry_date DATE,
+  ADD COLUMN IF NOT EXISTS location_id UUID REFERENCES inventory_locations(id),
+  ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}';
+
+-- Update quantity from existing columns if needed
+UPDATE finished_lots
+SET quantity = produced_qty,
+    quantity_remaining = remaining_qty,
+    unit_cogs_cents = COALESCE((unit_cost * 100)::INTEGER, 0)
+WHERE quantity IS NULL;
 
 -- ============================================================================
 -- INDEXES
 -- ============================================================================
 
-CREATE INDEX idx_finished_skus_workspace ON finished_skus(workspace_id);
-CREATE INDEX idx_finished_skus_code ON finished_skus(workspace_id, code);
-CREATE INDEX idx_packaging_runs_workspace ON packaging_runs(workspace_id);
-CREATE INDEX idx_packaging_runs_sku ON packaging_runs(sku_id);
-CREATE INDEX idx_packaging_runs_date ON packaging_runs(packaged_at);
-CREATE INDEX idx_packaging_run_sources_run ON packaging_run_sources(packaging_run_id);
-CREATE INDEX idx_packaging_run_sources_batch ON packaging_run_sources(batch_id);
-CREATE INDEX idx_finished_lots_workspace ON finished_lots(workspace_id);
-CREATE INDEX idx_finished_lots_sku ON finished_lots(sku_id);
-CREATE INDEX idx_finished_lots_code ON finished_lots(lot_code);
+CREATE INDEX IF NOT EXISTS idx_finished_skus_workspace ON finished_skus(workspace_id);
+CREATE INDEX IF NOT EXISTS idx_finished_skus_code ON finished_skus(workspace_id, code);
+CREATE INDEX IF NOT EXISTS idx_packaging_runs_workspace ON packaging_runs(workspace_id);
+CREATE INDEX IF NOT EXISTS idx_packaging_runs_sku ON packaging_runs(sku_id);
+CREATE INDEX IF NOT EXISTS idx_packaging_runs_date ON packaging_runs(packaged_at);
+CREATE INDEX IF NOT EXISTS idx_packaging_run_sources_run ON packaging_run_sources(run_id);
+CREATE INDEX IF NOT EXISTS idx_packaging_run_sources_batch ON packaging_run_sources(batch_id);
+CREATE INDEX IF NOT EXISTS idx_finished_lots_workspace ON finished_lots(workspace_id);
+CREATE INDEX IF NOT EXISTS idx_finished_lots_sku ON finished_lots(sku_id);
+CREATE INDEX IF NOT EXISTS idx_finished_lots_code ON finished_lots(lot_code);
 
 -- ============================================================================
 -- LOT CODE GENERATION FUNCTIONS
@@ -762,8 +781,7 @@ GRANT SELECT ON finished_lots TO authenticated;
 GRANT ALL ON finished_lots TO service_role;
 
 -- Grant sequence permissions
-GRANT USAGE, SELECT ON SEQUENCE packaging_runs_run_number_seq TO authenticated;
-GRANT ALL ON SEQUENCE packaging_runs_run_number_seq TO service_role;
+-- Note: run_number in packaging_runs is TEXT, not SERIAL, so no sequence exists
 
 -- ============================================================================
 -- COMMENTS

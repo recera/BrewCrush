@@ -15,7 +15,11 @@ ALTER TABLE vendors ENABLE ROW LEVEL SECURITY;
 
 -- Drop existing basic policies to rebuild comprehensively
 DROP POLICY IF EXISTS po_receipts_workspace ON po_receipts;
+DROP POLICY IF EXISTS po_receipts_insert ON po_receipts;
+DROP POLICY IF EXISTS po_receipts_update ON po_receipts;
 DROP POLICY IF EXISTS po_receipt_lines_workspace ON po_receipt_lines;
+DROP POLICY IF EXISTS po_receipt_lines_insert ON po_receipt_lines;
+DROP POLICY IF EXISTS po_lines_cost_visibility ON po_lines;
 DROP POLICY IF EXISTS vendors_workspace ON vendors;
 DROP POLICY IF EXISTS workspace_isolation_vendors ON vendors;
 
@@ -269,10 +273,18 @@ ALTER TABLE vendors
   ADD CONSTRAINT check_vendor_credit_limit
   CHECK (credit_limit IS NULL OR credit_limit >= 0);
 
--- Add unique constraint to prevent duplicate PO numbers
-ALTER TABLE purchase_orders
-  ADD CONSTRAINT unique_po_number_per_workspace
-  UNIQUE (workspace_id, po_number);
+-- Add unique constraint to prevent duplicate PO numbers (if not exists)
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint 
+    WHERE conname = 'unique_po_number_per_workspace'
+  ) THEN
+    ALTER TABLE purchase_orders
+      ADD CONSTRAINT unique_po_number_per_workspace
+      UNIQUE (workspace_id, po_number);
+  END IF;
+END $$;
 
 -- ============================================================================
 -- PART 3: PERFORMANCE INDEXES
@@ -488,6 +500,7 @@ END;
 $$;
 
 -- Function to cancel a purchase order
+DROP FUNCTION IF EXISTS cancel_purchase_order(UUID, TEXT);
 CREATE OR REPLACE FUNCTION cancel_purchase_order(
   p_po_id UUID,
   p_reason TEXT

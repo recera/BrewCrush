@@ -47,10 +47,10 @@ ALTER TABLE recipe_versions
   ADD COLUMN IF NOT EXISTS is_locked BOOLEAN DEFAULT false; -- For immutable versions
 
 -- Create indexes for better performance
-CREATE INDEX idx_recipe_steps_recipe_version ON recipe_steps(recipe_version_id);
-CREATE INDEX idx_recipe_ingredients_recipe_version ON recipe_ingredients(recipe_version_id);
-CREATE INDEX idx_recipe_versions_recipe ON recipe_versions(recipe_id);
-CREATE INDEX idx_batches_recipe_version ON batches(recipe_version_id);
+CREATE INDEX IF NOT EXISTS idx_recipe_steps_recipe_version ON recipe_steps(recipe_version_id);
+CREATE INDEX IF NOT EXISTS idx_recipe_ingredients_recipe_version ON recipe_ingredients(recipe_version_id);
+CREATE INDEX IF NOT EXISTS idx_recipe_versions_recipe ON recipe_versions(recipe_id);
+CREATE INDEX IF NOT EXISTS idx_batches_recipe_version ON batches(recipe_version_id);
 
 -- Function to calculate recipe cost from ingredients
 CREATE OR REPLACE FUNCTION calculate_recipe_cost(p_recipe_version_id UUID)
@@ -516,7 +516,9 @@ CREATE TRIGGER prevent_locked_recipe_steps_edit
   EXECUTE FUNCTION prevent_locked_recipe_edit();
 
 -- View for recipes with cost visibility based on role
-CREATE OR REPLACE VIEW v_recipes_with_costs AS
+-- Drop and recreate since we're changing the column structure
+DROP VIEW IF EXISTS v_recipes_with_costs CASCADE;
+CREATE VIEW v_recipes_with_costs AS
 SELECT 
   r.*,
   rv.version_number as latest_version,

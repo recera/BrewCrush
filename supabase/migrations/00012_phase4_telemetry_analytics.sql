@@ -52,14 +52,14 @@ CREATE TABLE IF NOT EXISTS telemetry_events (
   metadata JSONB DEFAULT '{}',
   session_id TEXT,
   device_info JSONB,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  
-  -- Indexes for efficient querying
-  INDEX idx_telemetry_workspace_event (workspace_id, event_type, created_at DESC),
-  INDEX idx_telemetry_entity (entity_type, entity_id),
-  INDEX idx_telemetry_user (user_id, created_at DESC),
-  INDEX idx_telemetry_session (session_id)
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Create indexes for efficient querying
+CREATE INDEX idx_telemetry_workspace_event ON telemetry_events (workspace_id, event_type, created_at DESC);
+CREATE INDEX idx_telemetry_entity ON telemetry_events (entity_type, entity_id);
+CREATE INDEX idx_telemetry_user ON telemetry_events (user_id, created_at DESC);
+CREATE INDEX idx_telemetry_session ON telemetry_events (session_id);
 
 -- Enable RLS
 ALTER TABLE telemetry_events ENABLE ROW LEVEL SECURITY;
@@ -68,12 +68,12 @@ ALTER TABLE telemetry_events ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can insert telemetry for their workspace"
   ON telemetry_events
   FOR INSERT
-  WITH CHECK (workspace_id = get_current_workspace_id());
+  WITH CHECK (workspace_id = get_jwt_workspace_id());
 
 CREATE POLICY "Users can view telemetry for their workspace"
   ON telemetry_events
   FOR SELECT
-  USING (workspace_id = get_current_workspace_id());
+  USING (workspace_id = get_jwt_workspace_id());
 
 -- Function to log telemetry events
 CREATE OR REPLACE FUNCTION log_telemetry_event(
@@ -101,7 +101,7 @@ BEGIN
     properties,
     metadata
   ) VALUES (
-    get_current_workspace_id(),
+    get_jwt_workspace_id(),
     auth.uid(),
     p_event_type,
     p_event_name,
@@ -122,6 +122,11 @@ RETURNS TRIGGER
 LANGUAGE plpgsql
 AS $$
 BEGIN
+  -- Skip telemetry if no workspace context (e.g., during seeding)
+  IF get_jwt_workspace_id() IS NULL THEN
+    RETURN NEW;
+  END IF;
+  
   IF TG_OP = 'INSERT' THEN
     IF TG_TABLE_NAME = 'recipes' THEN
       PERFORM log_telemetry_event(
@@ -184,6 +189,11 @@ RETURNS TRIGGER
 LANGUAGE plpgsql
 AS $$
 BEGIN
+  -- Skip telemetry if no workspace context (e.g., during seeding)
+  IF get_jwt_workspace_id() IS NULL THEN
+    RETURN NEW;
+  END IF;
+  
   IF TG_OP = 'INSERT' THEN
     PERFORM log_telemetry_event(
       'batch_created'::telemetry_event_type,
@@ -236,7 +246,7 @@ BEGIN
             'actual_volume', NEW.actual_volume
           )
         );
-      ELSIF NEW.status = 'completed' THEN
+      ELSIF NEW.status = 'closed' THEN
         PERFORM log_telemetry_event(
           'fermentation_completed'::telemetry_event_type,
           'Fermentation completed',
@@ -288,6 +298,11 @@ RETURNS TRIGGER
 LANGUAGE plpgsql
 AS $$
 BEGIN
+  -- Skip telemetry if no workspace context (e.g., during seeding)
+  IF get_jwt_workspace_id() IS NULL THEN
+    RETURN NEW;
+  END IF;
+  
   PERFORM log_telemetry_event(
     'ferm_reading_logged'::telemetry_event_type,
     'Fermentation reading logged',
@@ -320,6 +335,11 @@ AS $$
 DECLARE
   v_max_generation INTEGER;
 BEGIN
+  -- Skip telemetry if no workspace context (e.g., during seeding)
+  IF get_jwt_workspace_id() IS NULL THEN
+    RETURN NEW;
+  END IF;
+  
   IF TG_OP = 'INSERT' THEN
     IF TG_TABLE_NAME = 'yeast_strains' THEN
       PERFORM log_telemetry_event(
@@ -329,7 +349,8 @@ BEGIN
         NEW.id,
         jsonb_build_object(
           'name', NEW.name,
-          'lab_source', NEW.lab_source,
+          'manufacturer', NEW.manufacturer,
+          'strain_code', NEW.strain_code,
           'type', NEW.type
         )
       );
@@ -429,7 +450,7 @@ WITH batch_stats AS (
   SELECT 
     workspace_id,
     COUNT(*) AS total_batches,
-    COUNT(*) FILTER (WHERE status = 'completed') AS completed_batches,
+    COUNT(*) FILTER (WHERE status = 'closed') AS completed_batches,
     COUNT(*) FILTER (WHERE status IN ('brewing', 'fermenting', 'conditioning', 'packaging')) AS active_batches,
     AVG(actual_volume) AS avg_batch_volume,
     AVG(EXTRACT(DAY FROM ferment_end_date - ferment_start_date)) AS avg_fermentation_days
@@ -439,18 +460,19 @@ WITH batch_stats AS (
 ),
 recipe_stats AS (
   SELECT 
-    workspace_id,
-    COUNT(DISTINCT recipe_id) AS active_recipes,
-    COUNT(DISTINCT recipe_version_id) AS recipe_versions_used
-  FROM batches
-  WHERE created_at >= NOW() - INTERVAL '30 days'
-  GROUP BY workspace_id
+    b.workspace_id,
+    COUNT(DISTINCT rv.recipe_id) AS active_recipes,
+    COUNT(DISTINCT b.recipe_version_id) AS recipe_versions_used
+  FROM batches b
+  JOIN recipe_versions rv ON rv.id = b.recipe_version_id
+  WHERE b.created_at >= NOW() - INTERVAL '30 days'
+  GROUP BY b.workspace_id
 ),
 yeast_stats AS (
   SELECT 
     workspace_id,
     AVG(generation) AS avg_yeast_generation,
-    COUNT(*) FILTER (WHERE harvest_at IS NOT NULL) AS yeast_harvests
+    COUNT(*) FILTER (WHERE harvest_date IS NOT NULL) AS yeast_harvests
   FROM yeast_batches
   WHERE created_at >= NOW() - INTERVAL '30 days'
   GROUP BY workspace_id
@@ -506,13 +528,13 @@ AS $$
 DECLARE
   v_workspace_id UUID;
 BEGIN
-  v_workspace_id := get_current_workspace_id();
+  v_workspace_id := get_jwt_workspace_id();
   
   RETURN QUERY
   WITH current_period AS (
     SELECT 
       COUNT(*) AS batches_created,
-      COUNT(*) FILTER (WHERE status = 'completed') AS batches_completed,
+      COUNT(*) FILTER (WHERE status = 'closed') AS batches_completed,
       AVG(actual_volume) AS avg_volume,
       AVG(EXTRACT(DAY FROM ferment_end_date - ferment_start_date)) AS avg_ferment_days,
       COUNT(DISTINCT tank_id) AS tanks_used
@@ -523,7 +545,7 @@ BEGIN
   previous_period AS (
     SELECT 
       COUNT(*) AS batches_created,
-      COUNT(*) FILTER (WHERE status = 'completed') AS batches_completed,
+      COUNT(*) FILTER (WHERE status = 'closed') AS batches_completed,
       AVG(actual_volume) AS avg_volume,
       AVG(EXTRACT(DAY FROM ferment_end_date - ferment_start_date)) AS avg_ferment_days,
       COUNT(DISTINCT tank_id) AS tanks_used
@@ -677,7 +699,7 @@ BEGIN
       ELSE 100
     END AS success_rate
   FROM telemetry_events
-  WHERE workspace_id = get_current_workspace_id()
+  WHERE workspace_id = get_jwt_workspace_id()
     AND created_at >= NOW() - (p_days || ' days')::INTERVAL
     AND event_type IN ('offline_action_queued', 'offline_sync_completed', 'offline_sync_failed');
 END;

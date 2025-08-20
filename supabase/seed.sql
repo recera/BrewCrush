@@ -8,7 +8,15 @@ VALUES
   ('22222222-2222-2222-2222-222222222222', 'Contract Test Brewery', 'trial',
    '{"brewhouse_efficiency": 72, "default_uom": "metric"}'::jsonb);
 
--- Create demo users (passwords will be set through auth)
+-- Create auth users first (required for foreign key constraint)
+INSERT INTO auth.users (id, email, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
+VALUES 
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'admin@demo.brewcrush.com', '{}', '{"full_name": "Admin User"}', NOW(), NOW()),
+  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'brewer@demo.brewcrush.com', '{}', '{"full_name": "Head Brewer"}', NOW(), NOW()),
+  ('cccccccc-cccc-cccc-cccc-cccccccccccc', 'inventory@demo.brewcrush.com', '{}', '{"full_name": "Inventory Manager"}', NOW(), NOW()),
+  ('dddddddd-dddd-dddd-dddd-dddddddddddd', 'accounting@demo.brewcrush.com', '{}', '{"full_name": "Accounting User"}', NOW(), NOW());
+
+-- Create demo users in our users table (shadow of auth.users)
 INSERT INTO users (id, email, full_name)
 VALUES 
   ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'admin@demo.brewcrush.com', 'Admin User'),
