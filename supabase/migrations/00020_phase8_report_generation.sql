@@ -39,7 +39,7 @@ CREATE POLICY user_views_policy ON saved_report_views
 CREATE TRIGGER set_timestamp_saved_report_views
     BEFORE UPDATE ON saved_report_views
     FOR EACH ROW
-    EXECUTE FUNCTION trigger_set_timestamp();
+    EXECUTE FUNCTION update_updated_at_column();
 
 -- ============================================================================
 -- INVENTORY REPORT GENERATION

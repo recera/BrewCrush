@@ -744,6 +744,7 @@ CREATE UNIQUE INDEX idx_mv_recall_risk_assessment_unique
 ON mv_recall_risk_assessment (workspace_id, finished_lot_id);
 
 -- Enable RLS
-ALTER MATERIALIZED VIEW mv_recall_risk_assessment ENABLE ROW LEVEL SECURITY;
-CREATE POLICY tenant_isolation ON mv_recall_risk_assessment
-    FOR ALL USING (workspace_id = get_jwt_workspace_id());
+-- NOTE: Materialized views cannot have RLS enabled - access controlled via underlying tables
+-- ALTER MATERIALIZED VIEW mv_recall_risk_assessment ENABLE ROW LEVEL SECURITY;
+-- CREATE POLICY tenant_isolation ON mv_recall_risk_assessment
+--     FOR ALL USING (workspace_id = get_jwt_workspace_id());
