@@ -1,7 +1,9 @@
+'use client'
+
 import Link from 'next/link'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent } from '@/components/ui/card'
+import { Button } from '@brewcrush/ui'
+import { Badge } from '@brewcrush/ui'
+import { Card, CardContent } from '@brewcrush/ui'
 import { 
   Beer, 
   BarChart3, 

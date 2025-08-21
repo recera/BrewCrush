@@ -2,12 +2,12 @@
 
 import { useState } from 'react'
 import { Filter, X, ChevronDown, ChevronUp } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { Badge } from '@/components/ui/badge'
+import { Button } from '@brewcrush/ui'
+import { Input } from '@brewcrush/ui'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@brewcrush/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@brewcrush/ui'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@brewcrush/ui'
+import { Badge } from '@brewcrush/ui'
 
 interface FilterOption {
   key: string

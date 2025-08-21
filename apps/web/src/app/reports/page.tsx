@@ -5,7 +5,7 @@
 
 import { Suspense } from 'react'
 import { ReportsHub } from '@/components/reports/reports-hub'
-import { LoadingSpinner } from '@/components/ui/loading-spinner'
+import { LoadingSpinner } from '@brewcrush/ui'
 
 export default function ReportsPage() {
   return (

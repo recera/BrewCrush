@@ -279,7 +279,7 @@ async function generatePOPDF(po: POData): Promise<Uint8Array> {
 
     // Add new page if needed
     if (yPosition < 150) {
-      const newPage = pdfDoc.addPage([612, 792])
+      pdfDoc.addPage([612, 792])
       yPosition = height - margin
     }
   }

@@ -3,7 +3,7 @@
 import { AlertCircle, AlertTriangle, X } from 'lucide-react'
 import Link from 'next/link'
 import { useState } from 'react'
-import { Button } from '@/components/ui/button'
+import { Button } from '@brewcrush/ui'
 import { useBillingStatus } from '@/hooks/use-billing-status'
 
 export function BillingAlertBanner() {

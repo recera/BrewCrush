@@ -2,12 +2,12 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Button } from '@brewcrush/ui'
+import { Input } from '@brewcrush/ui'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@brewcrush/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@brewcrush/ui'
+import { Badge } from '@brewcrush/ui'
+import { Alert, AlertDescription } from '@brewcrush/ui'
 import { ReportTable } from './report-table'
 import { ExportControls } from './export-controls'
 import { 

@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Skeleton } from '@/components/ui/skeleton'
-import { useToast } from '@/components/ui/use-toast'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@brewcrush/ui'
+import { Button } from '@brewcrush/ui'
+import { Badge } from '@brewcrush/ui'
+import { Alert, AlertDescription } from '@brewcrush/ui'
+import { Skeleton } from '@brewcrush/ui'
+import { useToast } from '@brewcrush/ui'
 import { createClient } from '@/lib/supabase/client'
 import { redirectToCheckout } from '@/lib/stripe/client'
 import { 

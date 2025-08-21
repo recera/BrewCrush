@@ -1,14 +1,17 @@
+'use client'
+
 import Link from 'next/link'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@brewcrush/ui'
+import { Badge } from '@brewcrush/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@brewcrush/ui'
 import { 
   Beer, 
   CheckCircle,
   HelpCircle,
   Package,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  TrendingUp
 } from 'lucide-react'
 import { useState } from 'react'
 

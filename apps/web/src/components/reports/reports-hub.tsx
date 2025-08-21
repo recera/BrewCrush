@@ -11,9 +11,9 @@ import {
   DollarSign,
   BarChart3
 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Button } from '@brewcrush/ui'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@brewcrush/ui'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@brewcrush/ui'
 import { InventoryReport } from './inventory-report'
 import { BatchSummaryReport } from './batch-summary-report'
 import { POAgingReport } from './po-aging-report'

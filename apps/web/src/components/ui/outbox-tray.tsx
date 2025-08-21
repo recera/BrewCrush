@@ -3,11 +3,11 @@
 import { useState, useEffect } from 'react';
 import { useOfflineQueue } from '@/lib/offline/sync';
 import { getOutboxItems, removeFromOutbox, updateOutboxItem } from '@/lib/offline/db';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@brewcrush/ui';
+import { Button } from '@brewcrush/ui';
+import { Badge } from '@brewcrush/ui';
+import { ScrollArea } from '@brewcrush/ui';
+import { Alert, AlertDescription } from '@brewcrush/ui';
 import { 
   CloudOffIcon, 
   WifiOff, 

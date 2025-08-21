@@ -20,7 +20,7 @@ const WRITE_ROUTES = [
 ]
 
 export async function checkBillingStatus(request: NextRequest) {
-  const { pathname, searchParams } = request.nextUrl
+  const { pathname } = request.nextUrl
   const method = request.method
 
   // Always allow auth and billing routes

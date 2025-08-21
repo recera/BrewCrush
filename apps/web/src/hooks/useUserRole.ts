@@ -1,12 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { createBrowserClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/supabase/client'
 
 export function useUserRole() {
   const [role, setRole] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const supabase = createBrowserClient()
+  const supabase = createClient()
 
   useEffect(() => {
     async function fetchUserRole() {
@@ -40,7 +40,10 @@ export function useUserRole() {
     }
 
     fetchUserRole()
-  }, [])
+  }, [supabase])
 
-  return { role, loading }
+  // Determine if user can view costs based on role
+  const canViewCosts = role === 'admin' || role === 'accounting' || role === 'inventory'
+
+  return { role, loading, canViewCosts }
 }

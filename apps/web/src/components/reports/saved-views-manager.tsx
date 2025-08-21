@@ -2,14 +2,14 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { Badge } from '@/components/ui/badge'
+import { Button } from '@brewcrush/ui'
+import { Input } from '@brewcrush/ui'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@brewcrush/ui'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@brewcrush/ui'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@brewcrush/ui'
+import { Badge } from '@brewcrush/ui'
 import { Save, FolderOpen, Trash2, Edit, MoreVertical } from 'lucide-react'
-import { useToast } from '@/components/ui/use-toast'
+import { useToast } from '@brewcrush/ui'
 
 interface SavedView {
   id: string

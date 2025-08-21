@@ -2,10 +2,10 @@
 
 import { useState } from 'react'
 import { ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Card, CardContent } from '@/components/ui/card'
-import { Skeleton } from '@/components/ui/skeleton'
+import { Button } from '@brewcrush/ui'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@brewcrush/ui'
+import { Card, CardContent } from '@brewcrush/ui'
+import { Skeleton } from '@brewcrush/ui'
 
 interface Column {
   key: string

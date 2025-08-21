@@ -4,17 +4,17 @@ import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, addDays, isSameDay, isWithinInterval } from 'date-fns';
 import { ChevronLeft, ChevronRight, Calendar, Plus, Filter, Settings } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { Button } from '@brewcrush/ui';
+import { Card, CardContent, CardHeader, CardTitle } from '@brewcrush/ui';
+import { Badge } from '@brewcrush/ui';
+import { ScrollArea, ScrollBar } from '@brewcrush/ui';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from '@brewcrush/ui';
 import { createClient } from '@/lib/supabase/client';
 import { useUserRole } from '@/hooks/useUserRole';
 import { BatchTimeline, Tank } from '@/types/production';

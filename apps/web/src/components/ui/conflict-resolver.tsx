@@ -8,14 +8,14 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Label } from '@/components/ui/label';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+} from '@brewcrush/ui';
+import { Button } from '@brewcrush/ui';
+import { Alert, AlertDescription } from '@brewcrush/ui';
+import { Badge } from '@brewcrush/ui';
+import { RadioGroup, RadioGroupItem } from '@brewcrush/ui';
+import { Label } from '@brewcrush/ui';
+import { ScrollArea } from '@brewcrush/ui';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@brewcrush/ui';
 import { 
   AlertTriangle, 
   RefreshCw, 

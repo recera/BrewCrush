@@ -143,7 +143,7 @@ export class OfflineSyncManager {
   ): Promise<{ success: boolean; error?: string }> {
     try {
       switch (item.operation) {
-        case 'ferm_reading.create':
+        case 'ferm_reading.create': {
           const { error: fermError } = await supabase.rpc('log_ferm_reading', {
             ...item.payload,
             p_idempotency_key: item.idempotencyKey,
@@ -158,8 +158,9 @@ export class OfflineSyncManager {
             return { success: false, error: fermError.message };
           }
           return { success: true };
+        }
 
-        case 'batch.update_status':
+        case 'batch.update_status': {
           const { error: statusError } = await supabase.rpc('update_batch_status', {
             ...item.payload,
             p_idempotency_key: item.idempotencyKey,
@@ -172,8 +173,9 @@ export class OfflineSyncManager {
             return { success: false, error: statusError.message };
           }
           return { success: true };
+        }
 
-        case 'batch.consume_inventory':
+        case 'batch.consume_inventory': {
           const { error: consumeError } = await supabase.rpc('consume_batch_inventory', {
             ...item.payload,
             p_idempotency_key: item.idempotencyKey,
@@ -186,8 +188,9 @@ export class OfflineSyncManager {
             return { success: false, error: consumeError.message };
           }
           return { success: true };
+        }
 
-        case 'batch.update_measurements':
+        case 'batch.update_measurements': {
           const { error: measureError } = await supabase
             .from('batches')
             .update({
@@ -202,12 +205,14 @@ export class OfflineSyncManager {
             return { success: false, error: measureError.message };
           }
           return { success: true };
+        }
 
-        case 'timer.complete':
+        case 'timer.complete': {
           // Timer completions are just for tracking, no server sync needed
           return { success: true };
+        }
 
-        case 'yeast.pitch':
+        case 'yeast.pitch': {
           const { error: pitchError } = await supabase.rpc('pitch_yeast', {
             ...item.payload,
             p_idempotency_key: item.idempotencyKey,
@@ -220,8 +225,9 @@ export class OfflineSyncManager {
             return { success: false, error: pitchError.message };
           }
           return { success: true };
+        }
 
-        case 'yeast.harvest':
+        case 'yeast.harvest': {
           const { error: harvestError } = await supabase.rpc('harvest_yeast', {
             ...item.payload,
             p_idempotency_key: item.idempotencyKey,
@@ -234,6 +240,7 @@ export class OfflineSyncManager {
             return { success: false, error: harvestError.message };
           }
           return { success: true };
+        }
 
         default:
           return { success: false, error: `Unknown operation: ${item.operation}` };

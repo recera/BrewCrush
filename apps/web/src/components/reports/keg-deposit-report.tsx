@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { Button } from '@brewcrush/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@brewcrush/ui'
+import { Badge } from '@brewcrush/ui'
 import { ReportTable } from './report-table'
 import { ReportFilters } from './report-filters'
 import { SavedViewsManager } from './saved-views-manager'
