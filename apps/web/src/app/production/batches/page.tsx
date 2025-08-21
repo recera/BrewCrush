@@ -258,7 +258,7 @@ export default function BatchesPage() {
                         <DropdownMenuItem
                           onClick={(e) => {
                             e.stopPropagation();
-                            router.push(`/batches/${batch.id}/brew-day`);
+                            router.push(`/production/batches/${batch.id}/brew-day`);
                           }}
                         >
                           <FlaskConical className="mr-2 h-4 w-4" />
@@ -354,7 +354,7 @@ export default function BatchesPage() {
           onOpenChange={(open) => !open && setBrewDayBatch(null)}
           onSuccess={() => {
             refetch();
-            router.push(`/batches/${brewDayBatch.id}/brew-day`);
+            router.push(`/production/batches/${brewDayBatch.id}/brew-day`);
           }}
         />
       )}

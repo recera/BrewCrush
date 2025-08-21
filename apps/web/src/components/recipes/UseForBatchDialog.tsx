@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -35,11 +35,15 @@ import { Button } from '@brewcrush/ui';
 import { Calendar } from '@brewcrush/ui';
 import { Popover, PopoverContent, PopoverTrigger } from '@brewcrush/ui';
 import { Badge } from '@brewcrush/ui';
+import { Alert, AlertDescription, AlertTitle } from '@brewcrush/ui';
+import { ScrollArea } from '@brewcrush/ui';
+import { Separator } from '@brewcrush/ui';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { CalendarIcon, AlertCircle } from 'lucide-react';
+import { CalendarIcon, AlertCircle, AlertTriangle, CheckCircle, Package, FlaskConical } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Recipe, Tank, CreateBatchForm } from '@/types/production';
+import { formatNumber } from '@/lib/utils';
 
 const batchSchema = z.object({
   batch_number: z.string().min(1, 'Batch number is required'),
@@ -140,6 +144,36 @@ export function UseForBatchDialog({
     form.setValue('batch_number', batchNumberSuggestion);
   }
 
+  const selectedVersion = versions?.find(v => v.id === form.watch('recipe_version_id'));
+  const selectedVolume = form.watch('target_volume');
+  const scalingFactor = selectedVersion?.target_volume && selectedVolume
+    ? selectedVolume / selectedVersion.target_volume
+    : 1;
+
+  // Fetch ingredient preview when scaling
+  const { data: ingredientPreview } = useQuery({
+    queryKey: ['recipe-scaling-preview', form.watch('recipe_version_id'), form.watch('target_volume')],
+    queryFn: async () => {
+      const versionId = form.watch('recipe_version_id');
+      const volume = form.watch('target_volume');
+      
+      if (!versionId || !volume) return null;
+
+      const { data, error } = await supabase.rpc('preview_recipe_scaling', {
+        p_recipe_version_id: versionId,
+        p_target_volume: volume,
+      });
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: open && !!form.watch('recipe_version_id') && !!form.watch('target_volume'),
+  });
+
+  // Check if there are any stock issues
+  const hasStockIssues = ingredientPreview?.some(item => !item.stock_sufficient);
+  const totalEstimatedCost = ingredientPreview?.reduce((sum, item) => sum + (item.estimated_cost || 0), 0) || 0;
+
   const onSubmit = async (values: CreateBatchForm) => {
     setIsSubmitting(true);
     try {
@@ -154,7 +188,7 @@ export function UseForBatchDialog({
       if (error) throw error;
 
       // Navigate to the new batch
-      router.push(`/batches/${data}`);
+      router.push(`/production/batches/${data}`);
       onOpenChange(false);
     } catch (error: any) {
       console.error('Error creating batch:', error);
@@ -175,15 +209,9 @@ export function UseForBatchDialog({
     }
   };
 
-  const selectedVersion = versions?.find(v => v.id === form.watch('recipe_version_id'));
-  const selectedVolume = form.watch('target_volume');
-  const scalingFactor = selectedVersion?.target_volume && selectedVolume
-    ? selectedVolume / selectedVersion.target_volume
-    : 1;
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>Create Batch from Recipe</DialogTitle>
           <DialogDescription>
@@ -343,24 +371,98 @@ export function UseForBatchDialog({
               )}
             />
 
+            {/* Recipe Targets and Ingredient Preview */}
             {selectedVersion && (
-              <div className="rounded-lg bg-muted p-3 space-y-1 text-sm">
-                <p className="font-medium">Recipe Targets:</p>
-                <div className="grid grid-cols-2 gap-2 text-muted-foreground">
-                  {selectedVersion.target_og && (
-                    <span>OG: {selectedVersion.target_og.toFixed(3)}</span>
-                  )}
-                  {selectedVersion.target_fg && (
-                    <span>FG: {selectedVersion.target_fg.toFixed(3)}</span>
-                  )}
-                  {selectedVersion.target_abv && (
-                    <span>ABV: {selectedVersion.target_abv.toFixed(1)}%</span>
-                  )}
-                  {selectedVersion.target_ibu && (
-                    <span>IBU: {selectedVersion.target_ibu}</span>
-                  )}
+              <>
+                <div className="rounded-lg bg-muted p-3 space-y-1 text-sm">
+                  <p className="font-medium">Recipe Targets:</p>
+                  <div className="grid grid-cols-2 gap-2 text-muted-foreground">
+                    {selectedVersion.target_og && (
+                      <span>OG: {selectedVersion.target_og.toFixed(3)}</span>
+                    )}
+                    {selectedVersion.target_fg && (
+                      <span>FG: {selectedVersion.target_fg.toFixed(3)}</span>
+                    )}
+                    {selectedVersion.target_abv && (
+                      <span>ABV: {selectedVersion.target_abv.toFixed(1)}%</span>
+                    )}
+                    {selectedVersion.target_ibu && (
+                      <span>IBU: {selectedVersion.target_ibu}</span>
+                    )}
+                  </div>
                 </div>
-              </div>
+
+                {/* Ingredient Scaling Preview */}
+                {scalingFactor !== 1 && ingredientPreview && ingredientPreview.length > 0 && (
+                  <div className="space-y-3">
+                    <Separator />
+                    <div>
+                      <h4 className="font-medium mb-2">Scaled Ingredients</h4>
+                      {hasStockIssues && (
+                        <Alert className="mb-3">
+                          <AlertTriangle className="h-4 w-4" />
+                          <AlertTitle>Stock Warning</AlertTitle>
+                          <AlertDescription>
+                            Some ingredients have insufficient stock for this batch size.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                      
+                      <ScrollArea className="h-[200px] rounded-md border p-3">
+                        <div className="space-y-2">
+                          {ingredientPreview.map((item: any, index: number) => (
+                            <div
+                              key={item.item_id || index}
+                              className="flex items-center justify-between py-1 text-sm"
+                            >
+                              <div className="flex items-center gap-2">
+                                {item.item_type === 'raw' ? (
+                                  <FlaskConical className="h-3 w-3 text-muted-foreground" />
+                                ) : (
+                                  <Package className="h-3 w-3 text-muted-foreground" />
+                                )}
+                                <span className="font-medium">{item.item_name}</span>
+                              </div>
+                              <div className="flex items-center gap-4">
+                                <div className="text-right">
+                                  <span className="text-muted-foreground">
+                                    {formatNumber(item.original_qty)} → 
+                                  </span>
+                                  <span className="font-medium ml-1">
+                                    {formatNumber(item.scaled_qty)} {item.uom}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  {item.stock_sufficient ? (
+                                    <CheckCircle className="h-3 w-3 text-green-600" />
+                                  ) : (
+                                    <AlertCircle className="h-3 w-3 text-red-600" />
+                                  )}
+                                  <span className={cn(
+                                    "text-xs",
+                                    item.stock_sufficient ? "text-green-600" : "text-red-600"
+                                  )}>
+                                    {formatNumber(item.in_stock)} in stock
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                      
+                      {totalEstimatedCost > 0 && (
+                        <div className="mt-3 pt-3 border-t flex justify-between items-center">
+                          <span className="text-sm font-medium">Estimated Cost:</span>
+                          <span className="text-lg font-bold">
+                            ${totalEstimatedCost.toFixed(2)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
 
             <DialogFooter>
@@ -372,8 +474,12 @@ export function UseForBatchDialog({
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? 'Creating...' : 'Create Batch'}
+              <Button 
+                type="submit" 
+                disabled={isSubmitting || hasStockIssues}
+                className={hasStockIssues ? 'opacity-50' : ''}
+              >
+                {isSubmitting ? 'Creating...' : hasStockIssues ? 'Insufficient Stock' : 'Create Batch'}
               </Button>
             </DialogFooter>
           </form>

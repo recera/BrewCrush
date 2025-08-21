@@ -198,7 +198,7 @@ export function BatchDetailDialog({
                   <DropdownMenuSeparator />
                   {batch.status === 'brewing' && (
                     <DropdownMenuItem
-                      onClick={() => router.push(`/batches/${batch.id}/brew-day`)}
+                      onClick={() => router.push(`/production/batches/${batch.id}/brew-day`)}
                     >
                       <FlaskConical className="mr-2 h-4 w-4" />
                       Continue Brew Day
@@ -206,7 +206,7 @@ export function BatchDetailDialog({
                   )}
                   {['fermenting', 'conditioning'].includes(batch.status) && (
                     <DropdownMenuItem
-                      onClick={() => router.push(`/batches/${batch.id}/fermentation`)}
+                      onClick={() => router.push(`/production/batches/${batch.id}/fermentation`)}
                     >
                       <Activity className="mr-2 h-4 w-4" />
                       Log Reading

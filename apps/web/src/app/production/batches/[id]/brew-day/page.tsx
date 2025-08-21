@@ -352,7 +352,7 @@ export default function BrewDayPage() {
         </Alert>
         <Button 
           className="mt-4"
-          onClick={() => router.push(`/batches`)}
+          onClick={() => router.push(`/production/batches`)}
         >
           Back to Batches
         </Button>
@@ -372,7 +372,7 @@ export default function BrewDayPage() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => router.push('/batches')}
+              onClick={() => router.push('/production/batches')}
             >
               <ChevronLeft className="h-6 w-6" />
             </Button>

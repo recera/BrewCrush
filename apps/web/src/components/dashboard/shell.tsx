@@ -45,7 +45,7 @@ export function DashboardShell({ user, workspace, role, children }: DashboardShe
     { name: 'Purchasing', href: '/purchasing', icon: ShoppingCart, roles: ['admin', 'inventory', 'accounting'] },
     { name: 'Recipes', href: '/recipes', icon: ClipboardList, roles: ['admin', 'brewer'] },
     { name: 'Reports', href: '/reports', icon: BarChart3, roles: ['admin', 'accounting', 'contract_viewer'] },
-    { name: 'Compliance', href: '/compliance', icon: FileText, roles: ['admin', 'accounting'] },
+    { name: 'Compliance', href: '/dashboard/compliance', icon: FileText, roles: ['admin', 'accounting'] },
     { name: 'Settings', href: '/settings', icon: Settings, roles: ['admin'] },
   ].filter(item => item.roles.includes(role))
 
