@@ -58,11 +58,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@brewcrush/ui';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { createClient } from '@/lib/supabase/client';
 import { useUserRole } from '@/hooks/useUserRole';
 import { formatDate, formatDateTime, getDaysBetween, formatNumber, calculateABV } from '@/lib/utils';
 import { useToast } from '@brewcrush/ui';
+import { FermentationChart } from '@/components/production/FermentationChart';
+import { QuickLogButton } from '@/components/production/QuickLogButton';
+import { BatchExport } from '@/components/production/BatchExport';
 
 interface BatchDetail {
   id: string;
@@ -191,7 +193,7 @@ export default function BatchDetailPage({ params }: { params: { id: string } }) 
   });
 
   // Fetch fermentation readings
-  const { data: fermReadings } = useQuery({
+  const { data: fermReadings, refetch: refetchFermReadings } = useQuery({
     queryKey: ['ferm-readings', params.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -460,6 +462,10 @@ export default function BatchDetailPage({ params }: { params: { id: string } }) 
         </div>
         
         <div className="flex gap-2">
+          <BatchExport 
+            batch={batch}
+            fermReadings={fermReadings}
+          />
           {canManageBatch && batch.status === 'brewing' && (
             <Button
               onClick={() => router.push(`/production/batches/${params.id}/brew-day`)}
@@ -809,34 +815,44 @@ export default function BatchDetailPage({ params }: { params: { id: string } }) 
 
         {/* Fermentation Tab */}
         <TabsContent value="fermentation" className="space-y-4">
+          {/* QuickLog FAB for mobile */}
+          {canManageBatch && batch.status === 'fermenting' && (
+            <QuickLogButton
+              batchId={batch.id}
+              batchNumber={batch.batch_number}
+              tankName={batch.tank_name}
+              currentSG={fermReadings?.[0]?.sg}
+              currentTemp={fermReadings?.[0]?.temp}
+              currentPH={fermReadings?.[0]?.ph}
+              lastReading={fermReadings?.[0] ? {
+                sg: fermReadings[0].sg,
+                temp: fermReadings[0].temp,
+                ph: fermReadings[0].ph,
+                reading_at: fermReadings[0].reading_at
+              } : undefined}
+              variant="fab"
+              onSave={() => refetchFermReadings()}
+            />
+          )}
+
           {fermReadings && fermReadings.length > 0 ? (
             <>
-              {/* Fermentation Chart */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Fermentation Profile</CardTitle>
-                  <CardDescription>
-                    Gravity and temperature readings over time
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={formatChartData()}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" />
-                      <YAxis yAxisId="left" label={{ value: 'SG', angle: -90, position: 'insideLeft' }} />
-                      <YAxis yAxisId="right" orientation="right" label={{ value: 'Temp (°C)', angle: 90, position: 'insideRight' }} />
-                      <Tooltip />
-                      <Legend />
-                      <Line yAxisId="left" type="monotone" dataKey="sg" stroke="#8884d8" name="Specific Gravity" />
-                      <Line yAxisId="right" type="monotone" dataKey="temp" stroke="#82ca9d" name="Temperature" />
-                      {batch.target_fg && (
-                        <ReferenceLine yAxisId="left" y={batch.target_fg} stroke="#ff7300" strokeDasharray="5 5" label="Target FG" />
-                      )}
-                    </LineChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
+              {/* Enhanced Fermentation Chart with QA Specs */}
+              <FermentationChart
+                readings={fermReadings}
+                qaSpecs={{
+                  target_og: batch.target_og,
+                  target_fg: batch.target_fg,
+                  target_abv: batch.target_abv,
+                  target_ibu: batch.target_ibu,
+                  temp_min: 18, // These would come from recipe in production
+                  temp_max: 22,
+                  ph_min: 4.2,
+                  ph_max: 4.6,
+                }}
+                batchStatus={batch.status}
+                showAnomalies={true}
+              />
 
               {/* Readings Table */}
               <Card>
@@ -882,9 +898,14 @@ export default function BatchDetailPage({ params }: { params: { id: string } }) 
                 <Thermometer className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
                 <p className="text-muted-foreground">No fermentation readings recorded yet</p>
                 {canManageBatch && batch.status === 'fermenting' && (
-                  <Button className="mt-4" onClick={() => router.push('/production/tanks')}>
-                    Log Reading
-                  </Button>
+                  <QuickLogButton
+                    batchId={batch.id}
+                    batchNumber={batch.batch_number}
+                    tankName={batch.tank_name}
+                    variant="button"
+                    className="mt-4"
+                    onSave={() => refetchFermReadings()}
+                  />
                 )}
               </CardContent>
             </Card>
