@@ -1,4 +1,4 @@
-# BrewCrush 🍺
+# BrewCrush
 
 The easiest way for small breweries to plan, brew, package, track, and file—from grain to TTB.
 
@@ -16,15 +16,15 @@ BrewCrush is a comprehensive brewery management system designed to replace sprea
 
 ## Key Features
 
-- 📱 **Mobile-first** with offline support (PWA)
-- 🍺 **Recipe Management** with versioning and cost rollup
-- 📊 **Production Planning** from grain to glass
-- 📦 **Inventory Tracking** with lot management
-- 💰 **Purchase Orders** with supplier price history  
-- 🏭 **Packaging** with blends and lot/date codes
-- 📋 **TTB Compliance** (BROP generation & excise prep)
-- 👥 **Multi-user** with role-based access (unlimited users)
-- 🔄 **Real-time sync** with offline queue
+- **Mobile-first** with offline support (PWA)
+- **Recipe Management** with versioning and cost rollup
+- **Production Planning** from grain to glass
+- **Inventory Tracking** with lot management
+- **Purchase Orders** with supplier price history  
+- **Packaging** with blends and lot/date codes
+- **TTB Compliance** (BROP generation & excise prep)
+- **Multi-user** with role-based access (unlimited users)
+- **Real-time sync** with offline queue
 
 ## Getting Started
 
